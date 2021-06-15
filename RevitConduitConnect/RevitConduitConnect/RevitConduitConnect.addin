@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Text>Command RevitConduitConnect</Text>
+    <Description>Some description for RevitConduitConnect</Description>
+    <Assembly>RevitConduitConnect.dll</Assembly>
+    <FullClassName>RevitConduitConnect.Command</FullClassName>
+    <ClientId>87bf5e7a-5ee9-4d78-a9fd-96fcd4633ba2</ClientId>
+    <VendorId>com.typepad.thebuildingcoder</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+  <AddIn Type="Application">
+    <Name>Application RevitConduitConnect</Name>
+    <Assembly>RevitConduitConnect.dll</Assembly>
+    <FullClassName>RevitConduitConnect.App</FullClassName>
+    <ClientId>7a2df306-86d0-4fd3-8b64-dfb6208ae625</ClientId>
+    <VendorId>com.typepad.thebuildingcoder</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>
