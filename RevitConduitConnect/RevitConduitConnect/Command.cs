@@ -53,7 +53,7 @@ namespace RevitConduitConnect
             XYZ StartBC = result[0];
             XYZ EndBC = result[1];
 
-            var element22 = element2.Location as LocationCurve;
+            var locationCurve = element2.Location as LocationCurve;
 
             if (StartCD.X > EndCD.X && StartCD.X > EndBC.X)
                 line = Line.CreateBound(StartCD, EndBC);
@@ -69,24 +69,24 @@ namespace RevitConduitConnect
             
             trans.Start("createConduit");
 
-            var ne = Conduit.Create(doc, type.Id, StartBC, EndBC, level.Id);
-            element22.Curve = line;
+            var connectingConduit = Conduit.Create(doc, type.Id, StartBC, EndBC, level.Id);
+            locationCurve.Curve = line;
             trans.Commit();
-
+           
             trans = new Transaction(doc);
 
             trans.Start("createConduitConnect");
 
             if (StartBC == StartAB)
             {
-                Connect(StartAB, element1, ne, doc);
+                Connect(StartAB, element1, connectingConduit, doc);
             }
             if (StartBC == EndAB)
             {
-                Connect(EndAB, element1, ne, doc);
+                Connect(EndAB, element1, connectingConduit, doc);
             }
             
-            Connect(EndBC, ne, element2, doc);
+            Connect(EndBC, connectingConduit, element2, doc);
 
             trans.Commit();
 
