@@ -3,6 +3,8 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using RevitConduitConnect.Models;
 using System;
 using System.Collections.Generic;
 
@@ -17,6 +19,8 @@ namespace RevitConduitConnect
         private Line line;
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
+            UIApplication uiapp = commandData.Application;
+            UIDocument uidoc = uiapp.ActiveUIDocument;
 
             Document doc = commandData.Application.ActiveUIDocument.Document;
             Transaction trans = new Transaction(doc);
@@ -31,14 +35,13 @@ namespace RevitConduitConnect
 
             List<Element> conduits = new List<Element>();
 
-            foreach (var conduit in allConduit)
-            {
-                if (conduit.Id.IntegerValue == 1348848 || conduit.Id.IntegerValue == 1348872)
-                {
-                    conduits.Add(conduit);
-                }
-            }
+            ICollection<ElementId> selectedIds = uidoc.Selection.GetElementIds();
 
+            foreach (var id in selectedIds)
+            {
+                conduits.Add(doc.GetElement(id));
+            }
+               
             var element1 = conduits[0] as Conduit;
             var element2 = conduits[1] as Conduit;
 
@@ -95,35 +98,16 @@ namespace RevitConduitConnect
 
         private List<XYZ> SmallestDistanceConduit(XYZ startAB, XYZ endAB, XYZ startCD, XYZ endCD)
         {
-            var a = (Line.CreateBound(startAB, startCD)).ApproximateLength;
-            var b = (Line.CreateBound(startAB, endCD)).ApproximateLength;
-            var c = (Line.CreateBound(endAB, startCD)).ApproximateLength;
-            var d = (Line.CreateBound(endAB, endCD)).ApproximateLength;
-
-            List<(double, string)> list = new List<(double, string)>() { (a, "a"), (b, "b"), (c, "c"), (d, "d") };
-
-            list.Sort();
-
-            var result = list[0];
-
-            if (result.Item2 == "a")
+            List<LinesBetweenConduit> lines = new List<LinesBetweenConduit>()
             {
-                return CoordinatesSearch(startAB, startCD);
-            }
-            else if (result.Item2 == "b")
-            {
-                return CoordinatesSearch(startAB, endCD);
-            }
-            else if (result.Item2 == "c")
-            {
-                return CoordinatesSearch(endAB, startCD);
-            }
-            else if (result.Item2 == "d")
-            {
-                return CoordinatesSearch(endAB, endCD);
-            }
-            else
-                return null;
+               new LinesBetweenConduit{Size = startAB.DistanceTo(startCD), StartLine=startAB,EndLine=startCD},
+               new LinesBetweenConduit{Size = startAB.DistanceTo(endCD), StartLine=startAB,EndLine=endCD},
+               new LinesBetweenConduit{Size = endAB.DistanceTo(startCD), StartLine=endAB,EndLine=startCD},
+               new LinesBetweenConduit{Size = endAB.DistanceTo(endCD), StartLine=endAB,EndLine=endCD}
+            };
+            lines.Sort();
+
+            return CoordinatesSearch(lines[0].StartLine, lines[0].EndLine);
         }
 
         private List<XYZ> CoordinatesSearch(XYZ StartBC, XYZ EndBC)
