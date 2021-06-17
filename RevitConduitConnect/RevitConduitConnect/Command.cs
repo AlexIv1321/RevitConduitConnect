@@ -7,6 +7,8 @@ using Autodesk.Revit.UI.Selection;
 using RevitConduitConnect.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
 #endregion
 
@@ -17,6 +19,7 @@ namespace RevitConduitConnect
     public class Command : IExternalCommand
     {
         private Line line;
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiapp = commandData.Application;
@@ -41,7 +44,7 @@ namespace RevitConduitConnect
             {
                 conduits.Add(doc.GetElement(id));
             }
-               
+
             var element1 = conduits[0] as Conduit;
             var element2 = conduits[1] as Conduit;
 
@@ -51,7 +54,7 @@ namespace RevitConduitConnect
             XYZ StartCD = (element2.Location as LocationCurve).Curve.GetEndPoint(0);
             XYZ EndCD = (element2.Location as LocationCurve).Curve.GetEndPoint(1);
 
-            List<XYZ> result =  SmallestDistanceConduit(StartAB, EndAB, StartCD, EndCD);
+            List<XYZ> result = SmallestDistanceConduit(StartAB, EndAB, StartCD, EndCD);
 
             XYZ StartBC = result[0];
             XYZ EndBC = result[1];
@@ -62,20 +65,23 @@ namespace RevitConduitConnect
                 line = Line.CreateBound(StartCD, EndBC);
 
             else if (StartCD.X < EndCD.X && EndCD.X > EndBC.X)
-                line = Line.CreateBound(EndCD, EndBC);
+                line = Line.CreateBound( EndBC, EndCD);
 
             else if (StartCD.X > EndCD.X && StartCD.X < EndBC.X)
                 line = Line.CreateBound(EndCD, EndBC);
 
             else if (StartCD.X < EndCD.X && StartCD.X < EndBC.X)
                 line = Line.CreateBound(StartCD, EndBC);
-            
+
             trans.Start("createConduit");
 
             var connectingConduit = Conduit.Create(doc, type.Id, StartBC, EndBC, level.Id);
+            connectingConduit.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM).Set(element1.Diameter);
+
             locationCurve.Curve = line;
+
             trans.Commit();
-           
+
             trans = new Transaction(doc);
 
             trans.Start("createConduitConnect");
@@ -88,8 +94,8 @@ namespace RevitConduitConnect
             {
                 Connect(EndAB, element1, connectingConduit, doc);
             }
-            
-            Connect(EndBC, connectingConduit, element2, doc);
+
+            Connect(EndBC, element2, connectingConduit, doc);
 
             trans.Commit();
 
@@ -114,29 +120,29 @@ namespace RevitConduitConnect
         {
             List<XYZ> XYZ = new List<XYZ>();
 
-            if(StartBC.X>EndBC.X && StartBC.Y>EndBC.Y)
+            if (StartBC.X > EndBC.X && StartBC.Y > EndBC.Y)
             {
                 XYZ.Add(StartBC);
 
                 var f = EndBC.Y - (EndBC.X + StartBC.Y);
 
-                XYZ.Add(new XYZ( (EndBC.X + StartBC.X) + f,( EndBC.X + StartBC.Y)+ f, StartBC.Z));
+                XYZ.Add(new XYZ((EndBC.X + StartBC.X) + f, (EndBC.X + StartBC.Y) + f, StartBC.Z));
             }
             if (StartBC.X > EndBC.X && StartBC.Y < EndBC.Y)
             {
                 XYZ.Add(StartBC);
 
-                var f =  (StartBC.Y - EndBC.X)- EndBC.Y;
+                var f = (StartBC.Y - EndBC.X) - EndBC.Y;
 
-                XYZ.Add(new XYZ((StartBC.X + EndBC.X)+f, (StartBC.Y - EndBC.X)-f, StartBC.Z));
+                XYZ.Add(new XYZ((StartBC.X + EndBC.X) + f, (StartBC.Y - EndBC.X) - f, StartBC.Z));
             }
             if (StartBC.X < EndBC.X && StartBC.Y > EndBC.Y)
             {
                 XYZ.Add(StartBC);
 
-                var f =EndBC.Y - (StartBC.Y - EndBC.X);
+                var f = EndBC.Y - (StartBC.Y - EndBC.X);
 
-                XYZ.Add(new XYZ((StartBC.X + EndBC.X)-f, (StartBC.Y - EndBC.X)+f, StartBC.Z));
+                XYZ.Add(new XYZ((StartBC.X + EndBC.X) - f, (StartBC.Y - EndBC.X) + f, StartBC.Z));
             }
             if (StartBC.X < EndBC.X && StartBC.Y < EndBC.Y)
             {
@@ -144,7 +150,7 @@ namespace RevitConduitConnect
 
                 var f = (StartBC.Y + EndBC.X) - EndBC.Y;
 
-                XYZ.Add(new XYZ((StartBC.X + EndBC.X)-f, (StartBC.Y + EndBC.X)-f, StartBC.Z));
+                XYZ.Add(new XYZ((StartBC.X + EndBC.X) - f, (StartBC.Y + EndBC.X) - f, StartBC.Z));
             }
             return XYZ;
 
@@ -208,5 +214,9 @@ namespace RevitConduitConnect
             }
             return targetConnector;
         }
+
     }
 }
+
+    
+
