@@ -1,5 +1,6 @@
 C:\Users\Ырырыр\source\repos\RevitConduitConnect\RevitConduitConnect\bin\Debug\RevitConduitConnect.dll
 C:\Users\Ырырыр\source\repos\RevitConduitConnect\RevitConduitConnect\bin\Debug\RevitConduitConnect.pdb
+C:\Users\Ырырыр\source\repos\RevitConduitConnect\RevitConduitConnect\obj\Debug\RevitConduitConnect.csprojAssemblyReference.cache
 C:\Users\Ырырыр\source\repos\RevitConduitConnect\RevitConduitConnect\obj\Debug\RevitConduitConnect.csproj.CoreCompileInputs.cache
 C:\Users\Ырырыр\source\repos\RevitConduitConnect\RevitConduitConnect\obj\Debug\RevitConduitConnect.dll
 C:\Users\Ырырыр\source\repos\RevitConduitConnect\RevitConduitConnect\obj\Debug\RevitConduitConnect.pdb

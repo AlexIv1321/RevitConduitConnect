@@ -3,12 +3,9 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
 using RevitConduitConnect.Models;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 
 #endregion
 
@@ -18,23 +15,16 @@ namespace RevitConduitConnect
     [Regeneration(RegenerationOption.Manual)]
     public class Command : IExternalCommand
     {
-        private Line line;
-
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiapp = commandData.Application;
             UIDocument uidoc = uiapp.ActiveUIDocument;
-
             Document doc = commandData.Application.ActiveUIDocument.Document;
             Transaction trans = new Transaction(doc);
-
-            FilteredElementCollector collectorType = new FilteredElementCollector(doc).OfClass(typeof(Autodesk.Revit.DB.Electrical.ConduitType));
+            FilteredElementCollector collectorType = new FilteredElementCollector(doc).OfClass(typeof(ConduitType));
             FilteredElementCollector collectorLevel = new FilteredElementCollector(doc).OfClass(typeof(Level));
-
-            Autodesk.Revit.DB.Electrical.ConduitType type = collectorType.FirstElement() as Autodesk.Revit.DB.Electrical.ConduitType;
+            ConduitType type = collectorType.FirstElement() as ConduitType;
             Level level = collectorLevel.FirstElement() as Level;
-
-            ICollection<Element> allConduit = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Conduit).WhereElementIsNotElementType().ToElements();
 
             List<Element> conduits = new List<Element>();
 
@@ -45,64 +35,70 @@ namespace RevitConduitConnect
                 conduits.Add(doc.GetElement(id));
             }
 
-            var element1 = conduits[0] as Conduit;
-            var element2 = conduits[1] as Conduit;
+            var conduit1 = conduits[0] as Conduit;
+            var conduit2 = conduits[1] as Conduit;
 
-            XYZ StartAB = (element1.Location as LocationCurve).Curve.GetEndPoint(0);
-            XYZ EndAB = (element1.Location as LocationCurve).Curve.GetEndPoint(1);
+            XYZ StartAB = (conduit1.Location as LocationCurve).Curve.GetEndPoint(0);
+            XYZ EndAB = (conduit1.Location as LocationCurve).Curve.GetEndPoint(1);
 
-            XYZ StartCD = (element2.Location as LocationCurve).Curve.GetEndPoint(0);
-            XYZ EndCD = (element2.Location as LocationCurve).Curve.GetEndPoint(1);
+            XYZ StartCD = (conduit2.Location as LocationCurve).Curve.GetEndPoint(0);
+            XYZ EndCD = (conduit2.Location as LocationCurve).Curve.GetEndPoint(1);
 
-            List<XYZ> result = SmallestDistanceConduit(StartAB, EndAB, StartCD, EndCD);
+            LinesBetweenConduit listXYZ = SmallestDistanceConduit(StartAB, EndAB, StartCD, EndCD);
+            Line lineComduit2 = Line.CreateBound(StartCD, EndCD);
 
-            XYZ StartBC = result[0];
-            XYZ EndBC = result[1];
+            var locationCurve = conduit2.Location as LocationCurve;
+            var line1End = (conduit2.Location as LocationCurve).Curve.GetEndParameter(1);
 
-            var locationCurve = element2.Location as LocationCurve;
+            trans.Start("changeTheConduit");
 
-            if (StartCD.X > EndCD.X && StartCD.X > EndBC.X)
-                line = Line.CreateBound(StartCD, EndBC);
+            lineComduit2.MakeBound(MissingDistance(listXYZ,StartAB,EndAB), line1End);
+            locationCurve.Curve = lineComduit2;
 
-            else if (StartCD.X < EndCD.X && EndCD.X > EndBC.X)
-                line = Line.CreateBound( EndBC, EndCD);
+            trans.Commit();
 
-            else if (StartCD.X > EndCD.X && StartCD.X < EndBC.X)
-                line = Line.CreateBound(EndCD, EndBC);
+            StartCD = (conduit2.Location as LocationCurve).Curve.GetEndPoint(0);
 
-            else if (StartCD.X < EndCD.X && StartCD.X < EndBC.X)
-                line = Line.CreateBound(StartCD, EndBC);
+            Line line = Line.CreateBound(StartCD, EndCD);
 
+            listXYZ = SmallestDistanceConduit(StartAB, EndAB, StartCD, EndCD);
+
+            XYZ StartBC = listXYZ.StartLine;
+            XYZ EndBC = listXYZ.EndLine;
+
+            trans = new Transaction(doc);
             trans.Start("createConduit");
 
-            var connectingConduit = Conduit.Create(doc, type.Id, StartBC, EndBC, level.Id);
-            connectingConduit.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM).Set(element1.Diameter);
-
             locationCurve.Curve = line;
+            var connectingConduit = Conduit.Create(doc, type.Id, StartBC, EndBC, level.Id);
+            connectingConduit.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM).Set(conduit1.Diameter);
 
             trans.Commit();
 
             trans = new Transaction(doc);
-
             trans.Start("createConduitConnect");
 
-            if (StartBC == StartAB)
-            {
-                Connect(StartAB, element1, connectingConduit, doc);
-            }
-            if (StartBC == EndAB)
-            {
-                Connect(EndAB, element1, connectingConduit, doc);
-            }
-
-            Connect(EndBC, element2, connectingConduit, doc);
+            Connect(StartBC, conduit1, connectingConduit, doc);
+            Connect(EndBC, conduit2, connectingConduit, doc);
 
             trans.Commit();
 
             return Result.Succeeded;
         }
 
-        private List<XYZ> SmallestDistanceConduit(XYZ startAB, XYZ endAB, XYZ startCD, XYZ endCD)
+        private double MissingDistance(LinesBetweenConduit listXYZ, XYZ StartAB, XYZ EndAB)
+        {
+            Line lineConduit1 = Line.CreateBound(StartAB, EndAB);
+            lineConduit1.MakeUnbound();
+            var katet1 = lineConduit1.Distance(listXYZ.EndLine);
+            var gipotenusa = listXYZ.StartLine.DistanceTo(listXYZ.EndLine);
+            var katet2 = gipotenusa * gipotenusa - katet1 * katet1;
+
+            katet2 = Math.Sqrt(katet2);
+
+           return -(katet2 - katet1);
+        }
+        private LinesBetweenConduit SmallestDistanceConduit(XYZ startAB, XYZ endAB, XYZ startCD, XYZ endCD)
         {
             List<LinesBetweenConduit> lines = new List<LinesBetweenConduit>()
             {
@@ -113,52 +109,11 @@ namespace RevitConduitConnect
             };
             lines.Sort();
 
-            return CoordinatesSearch(lines[0].StartLine, lines[0].EndLine);
-        }
-
-        private List<XYZ> CoordinatesSearch(XYZ StartBC, XYZ EndBC)
-        {
-            List<XYZ> XYZ = new List<XYZ>();
-
-            if (StartBC.X > EndBC.X && StartBC.Y > EndBC.Y)
-            {
-                XYZ.Add(StartBC);
-
-                var f = EndBC.Y - (EndBC.X + StartBC.Y);
-
-                XYZ.Add(new XYZ((EndBC.X + StartBC.X) + f, (EndBC.X + StartBC.Y) + f, StartBC.Z));
-            }
-            if (StartBC.X > EndBC.X && StartBC.Y < EndBC.Y)
-            {
-                XYZ.Add(StartBC);
-
-                var f = (StartBC.Y - EndBC.X) - EndBC.Y;
-
-                XYZ.Add(new XYZ((StartBC.X + EndBC.X) + f, (StartBC.Y - EndBC.X) - f, StartBC.Z));
-            }
-            if (StartBC.X < EndBC.X && StartBC.Y > EndBC.Y)
-            {
-                XYZ.Add(StartBC);
-
-                var f = EndBC.Y - (StartBC.Y - EndBC.X);
-
-                XYZ.Add(new XYZ((StartBC.X + EndBC.X) - f, (StartBC.Y - EndBC.X) + f, StartBC.Z));
-            }
-            if (StartBC.X < EndBC.X && StartBC.Y < EndBC.Y)
-            {
-                XYZ.Add(StartBC);
-
-                var f = (StartBC.Y + EndBC.X) - EndBC.Y;
-
-                XYZ.Add(new XYZ((StartBC.X + EndBC.X) - f, (StartBC.Y + EndBC.X) - f, StartBC.Z));
-            }
-            return XYZ;
-
+            return lines[0];
         }
 
         private static void Connect(XYZ location, Element a, Element b, Document doc)
         {
-
             ConnectorManager cm = GetConnectorManager(a);
 
             if (null == cm)
@@ -214,9 +169,5 @@ namespace RevitConduitConnect
             }
             return targetConnector;
         }
-
     }
 }
-
-    
-
