@@ -59,7 +59,7 @@ namespace RevitConduitConnect
 
             StartCD = (conduit2.Location as LocationCurve).Curve.GetEndPoint(0);
 
-            Line line = Line.CreateBound(StartCD, EndCD);
+            Line lineNewStartCD_OldEndCD = Line.CreateBound(StartCD, EndCD);
 
             listXYZ = SmallestDistanceConduit(StartAB, EndAB, StartCD, EndCD);
 
@@ -69,7 +69,7 @@ namespace RevitConduitConnect
             trans = new Transaction(doc);
             trans.Start("createConduit");
 
-            locationCurve.Curve = line;
+            locationCurve.Curve = lineNewStartCD_OldEndCD;
             var connectingConduit = Conduit.Create(doc, type.Id, StartBC, EndBC, level.Id);
             connectingConduit.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM).Set(conduit1.Diameter);
 
@@ -90,13 +90,13 @@ namespace RevitConduitConnect
         {
             Line lineConduit1 = Line.CreateBound(StartAB, EndAB);
             lineConduit1.MakeUnbound();
-            var katet1 = lineConduit1.Distance(listXYZ.EndLine);
-            var gipotenusa = listXYZ.StartLine.DistanceTo(listXYZ.EndLine);
-            var katet2 = gipotenusa * gipotenusa - katet1 * katet1;
+            var leg1 = lineConduit1.Distance(listXYZ.EndLine);
+            var hypotenuse = listXYZ.StartLine.DistanceTo(listXYZ.EndLine);
+            var leg2 = hypotenuse * hypotenuse - leg1 * leg1;
 
-            katet2 = Math.Sqrt(katet2);
+            leg2 = Math.Sqrt(leg2);
 
-           return -(katet2 - katet1);
+           return -(leg2 - leg1);
         }
         private LinesBetweenConduit SmallestDistanceConduit(XYZ startAB, XYZ endAB, XYZ startCD, XYZ endCD)
         {
